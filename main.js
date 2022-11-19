@@ -1,5 +1,6 @@
 require("dotenv/config");
 const { createClient } = require("@supabase/supabase-js");
+const { print, warn, fatal } = require("@kitsune-labs/utilities");
 
 const Supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, {
 	autoRefreshToken: true,
@@ -8,7 +9,8 @@ const Supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 });
 
 async function checkDates() {
-	let { data: rawData } = await Supabase.from("Users").select();
+	print("Checking dates...");
+	let { data: rawData } = await Supabase.from("Users").select("*");
 
 	for (var data of rawData) {
 		const date = new Date();
@@ -20,10 +22,15 @@ async function checkDates() {
 
 		const deletionDate = newLastUsed.toISOString().slice(0, 10);
 
+		print(currentDate, deletionDate, currentDate == deletionDate);
 		if (currentDate == deletionDate) {
 			const { error } = await Supabase.from("Users").delete().eq("id", data.id);
 
-			if (error) console.log(error);
+			if (error) {
+				fatal(error);
+			} else {
+				warn(`Deleted ${data.id}`);
+			}
 		}
 	}
 }
