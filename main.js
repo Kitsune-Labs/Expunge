@@ -1,6 +1,7 @@
 require("dotenv/config");
 const { createClient } = require("@supabase/supabase-js");
-const { print, warn, fatal } = require("@kitsune-labs/utilities");
+const { print, fatal } = require("@kitsune-labs/utilities");
+const { DateTime } = require("luxon");
 
 const Supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, {
 	autoRefreshToken: true,
@@ -13,26 +14,17 @@ async function checkDates() {
 	let { data: rawData } = await Supabase.from("Users").select("*");
 
 	for (var data of rawData) {
-		const date = new Date();
-		const currentDate = date.toISOString().slice(0, 10);
+		const lastUsed = DateTime.fromISO(data.LastUsed);
+		const deletionDate = lastUsed.plus({ days: data.DeletionDays });
 
-		const lastUsed = data.LastUsed.slice(0, 10);
-		const newLastUsed = new Date(lastUsed);
-		newLastUsed.setMonth(newLastUsed.getMonth() + 1);
-
-		const deletionDate = newLastUsed.toISOString().slice(0, 10);
-
-		print(currentDate, deletionDate, currentDate == deletionDate);
-		if (currentDate == deletionDate) {
+		if (DateTime.local() > deletionDate) {
 			const { error } = await Supabase.from("Users").delete().eq("id", data.id);
 
-			if (error) {
-				fatal(error);
-			} else {
-				warn(`Deleted ${data.id}`);
-			}
+			if (error) fatal(error);
+			// print(`Delete ${data.id}, last used ${lastUsed.month}/${lastUsed.day}/${lastUsed.year} which is past ${data.DeletionDays} days...`);
 		}
 	}
+	print("Finished");
 }
 
 checkDates();
